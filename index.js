@@ -4,20 +4,18 @@ import HOTP from 'hotp';
 import io from 'socket.io-client';
 
 const tokenClientConfigured = () => {
-    if (TokenClient.serverURL === null || TokenClient.terminalKey === null || TokenClient.apiURL === null || TokenClient.storage === null) {
+    if (TokenClient.terminalKey === null || TokenClient.apiURL === null || TokenClient.storage === null) {
         throw `TokenClient isn't configured`
     }
 }
 const TokenClient = {
-    serverURL: null,
     apiURL: null,
     terminalKey: null,
     storage: null,
-    configure: async (serverURL, apiURL, storage, encryptionString, deviceInfo) => {
-        TokenClient.serverURL = serverURL;
+    configure: async (apiURL, storage, encryptionString, deviceInfo, jwt) => {
         TokenClient.apiURL = apiURL;
         TokenClient.storage = storage;
-        const tokenString = await storage.get('@MARRANETOKEN-TokenString');
+        const tokenString = await TokenClient.storage.get('@MARRANETOKEN-TokenString');
         let terminalKey = null;
         if (!!tokenString) {
             terminalKey = CryptoJS.AES.decrypt(tokenString, encryptionString);
@@ -25,8 +23,8 @@ const TokenClient = {
         if (!!terminalKey) {
             TokenClient.terminalKey = terminalKey;
         } else {
-            let res = await axios.post(`${TokenClient.apiURL}/terminal`, {deviceInfo});
-            let crypt = CryptoJS.AES.encrypt(res.data.terminalKey, encryptionString);
+            let res = await axios.post(`${TokenClient.apiURL}/terminal`, {deviceInfo}, {headers: {Authorization: jwt}});
+            let crypt = CryptoJS.AES.encrypt(res.data.terminalToken, encryptionString);
             await storage.set('@MARRANETOKEN-TokenString', crypt.toString());
             TokenClient.terminalKey = res.data.terminalKey;
         }
@@ -36,10 +34,9 @@ const TokenClient = {
             tokenClientConfigured();
             let res = await axios.post(`${TokenClient.apiURL}/device/link`, {
                 deviceInfo,
-                terminalKey: TokenClient.terminalKey,
-                jwt
-            });
-            let crypt = CryptoJS.AES.encrypt(res.data.deviceKey, encryptionString);
+                terminalKey: TokenClient.terminalKey
+            }, {headers: {Authorization: jwt}});
+            let crypt = CryptoJS.AES.encrypt(res.data.deviceToken, encryptionString);
             await TokenClient.storage.set('@MARRANETOKEN-DeviceToken', crypt.toString());
         },
         // unlink: () => {
@@ -51,7 +48,10 @@ const TokenClient = {
             tokenClientConfigured();
             let encryptedString = await TokenClient.storage.get('@MARRANETOKEN-TokenString');
             let terminalKey = CryptoJS.AES.decrypt(encryptedString, encryptionString);
-            let res = await axios.post(`${TokenClient.apiURL}/transaction`, {deviceInfo, terminalKey, jwt});
+            let res = await axios.post(`${TokenClient.apiURL}/transaction`, {
+                deviceInfo,
+                terminalKey
+            }, {headers: {Authorization: jwt}});
             return res.data.transaction;
         },
         cancel: async (encryptionString, deviceInfo, jwt, transaction) => {
@@ -75,7 +75,7 @@ const TokenClient = {
                 deviceInfo,
                 deviceKey,
                 otp
-            }, {headers:{Authorization: jwt}});
+            }, {headers: {Authorization: jwt}});
         },
         deny: async (encryptionString, deviceInfo, jwt, transaction) => {
             tokenClientConfigured();
@@ -86,22 +86,22 @@ const TokenClient = {
                 deviceInfo,
                 deviceKey,
                 otp
-            }, {headers:{Authorization: jwt}});
+            }, {headers: {Authorization: jwt}});
         },
         generateOTP: async (encryptionString) => {
             tokenClientConfigured();
             let encryptedString = await TokenClient.storage.get('@MARRANETOKEN-DeviceToken');
             let key = CryptoJS.AES.decrypt(encryptedString, encryptionString);
-            return HOTP.totp(key.toString(CryptoJS.enc.Utf8), {digits: 6, time: Date.now() / 1000, timeStep: 24});
+            return HOTP.totp(key.toString(CryptoJS.enc.Utf8), {digits: 6, time: Date.now() / 1000, timeStep: 30});
         },
         status: async (transaction, jwt) => {
             tokenClientConfigured();
-            let res = await axios.get(`${TokenClient.serverURL}/transaction/${transaction}`, {headers:{Authorization: jwt}});
+            let res = await axios.get(`${TokenClient.apiURL}/transaction/${transaction}`, {headers: {Authorization: jwt}});
             return res;
         },
         // listen: (encryptionString, jwt, transaction) => {
         //     //TODO socket
-        //     const socket = io.connect(`${TokenClient.serverURL}/socket/`);
+        //     const socket = io.connect(`${TokenClient.apiURL}/socket/`);
         //     socket.on('connect', () => {
         //         socket.emit('join', `{transaction: ${transaction}, jwt: ${jwt}`);
         //     });
