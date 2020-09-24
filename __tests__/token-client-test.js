@@ -33,7 +33,7 @@ test('crash without configure', async () => {
 test('generateOTP', async () => {
     axios.post.mockResolvedValue({data:{terminalToken: '3b826222b2394ef79fe5e2035cd4a4003444a3c27ed062ab0c1b4210aa85d0843529bda7d9996760b9ee1a5ac4bb7e98f8cf26910589e0f0f0d2fee75fded32c'}});
     await TokenClient.configure('https://localhost', storage, encryptionString, deviceInfo);
-    axios.post.mockResolvedValue({data:{deviceToken: '375918fc89647ac8503da7bb07e00968d9b07c4337f2f4d7bb6b7495ae2aaaa80459ea2fdbe5c267bf27133bf5c49a98470f266b022efac8b09b21f349b41e04'}});
+    axios.post.mockResolvedValue({data:{deviceToken: '2d06e391fb647af687ffa3567938771ce86980434f3a01dd4055a2e6a853f7aade99c25e872b715cff2ee3f446243269459d4021b3d2bc099d3635c3195ec961'}});
     await TokenClient.device.link(encryptionString, deviceInfo, '1234lkdfnlk3n4ogknerlkgn');
     let otp = await TokenClient.transaction.generateOTP(encryptionString);
     console.log(otp);

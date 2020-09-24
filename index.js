@@ -44,26 +44,23 @@ const TokenClient = {
         // },
     },
     transaction: {
-        create: async (encryptionString, deviceInfo, jwt) => {
+        create: async (transaction, jwt) => {
             tokenClientConfigured();
-            let encryptedString = await TokenClient.storage.get('@MARRANETOKEN-TokenString');
-            let terminalKey = CryptoJS.AES.decrypt(encryptedString, encryptionString);
             let res = await axios.post(`${TokenClient.apiURL}/transaction`, {
-                deviceInfo,
-                terminalKey
+                type: transaction.type,
+                identifier: transaction.identifier,
+                partner: transaction.partner,
+                notificationURL: transaction.notificationURL,
+                lifetime: transaction.lifetime,
+                attempts: transaction.attempts
             }, {headers: {Authorization: jwt}});
             return res.data.transaction;
         },
-        cancel: async (encryptionString, deviceInfo, jwt, transaction) => {
+        cancel: async (transaction, jwt) => {
             tokenClientConfigured();
-            let encryptedString = await TokenClient.storage.get('@MARRANETOKEN-TokenString');
-            let terminalKey = CryptoJS.AES.decrypt(encryptedString, encryptionString);
-            await axios.delete(`${TokenClient.apiURL}/transaction/${transaction}/delete`, {
+            await axios.delete(`${TokenClient.apiURL}/transaction/${transaction}`, {
                 headers: {Authorization: jwt},
-                data: {
-                    deviceInfo,
-                    terminalKey,
-                }
+                data: {}
             });
         },
         authorize: async (encryptionString, deviceInfo, jwt, transaction) => {
